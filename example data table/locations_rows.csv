@@ -1,0 +1,4 @@
+id,created_at,venue_id,parent_id,type,code,display_name,is_active
+47aed284-0be9-4cd8-aa98-d7ca465aedbe,2026-03-05 23:56:22.197631+00,157044de-5dcf-4192-bda1-de122e3b0dc0,9eda0ab2-c361-4ca4-bfd5-2e7263e1f0fc,Seat,S5,Seat 5,true
+6626ca68-90a5-4dc3-a674-23e972e16157,2026-03-05 23:54:27.441784+00,157044de-5dcf-4192-bda1-de122e3b0dc0,,section,PTR,Poker Tournament Room,true
+9eda0ab2-c361-4ca4-bfd5-2e7263e1f0fc,2026-03-05 23:55:37.417862+00,157044de-5dcf-4192-bda1-de122e3b0dc0,6626ca68-90a5-4dc3-a674-23e972e16157,Table,T21,Table 21,true
