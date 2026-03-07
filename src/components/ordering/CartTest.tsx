@@ -13,10 +13,11 @@ import type {
 type Props = {
   venue: OrderingVenue;
   location: OrderingLocation;
+  locationPath: OrderingLocation[];
   menuItems: OrderingMenuItem[];
 };
 
-export default function CartTest({ venue, location, menuItems }: Props) {
+export default function CartTest({ venue, location, locationPath, menuItems }: Props) {
   const { itemCount } = useCart();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -26,7 +27,7 @@ export default function CartTest({ venue, location, menuItems }: Props) {
       <div className="sticky top-0 z-30 bg-zinc-900/90 backdrop-blur border-b border-zinc-800 px-4 py-4">
         <h1 className="text-xl font-bold leading-tight">{venue.name}</h1>
         <p className="text-xs text-zinc-400 mt-0.5">
-          {location.display_name} · {location.type}
+          {locationPath.map((l) => l.display_name).join(" › ")}
         </p>
       </div>
 
@@ -57,7 +58,7 @@ export default function CartTest({ venue, location, menuItems }: Props) {
         )}
       </button>
 
-      <CartDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
+      <CartDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} locationId={location.id} />
     </div>
   );
 }

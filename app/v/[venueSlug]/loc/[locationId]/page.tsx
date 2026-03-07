@@ -14,7 +14,7 @@ export default async function LocationPage({ params }: PageProps) {
   const { venueSlug, locationId } = await params;
 
   try {
-    const { venue, location, menuItems } = await fetchOrderingContext(
+    const { venue, location, locationPath, menuItems } = await fetchOrderingContext(
       venueSlug,
       locationId
     );
@@ -24,6 +24,7 @@ export default async function LocationPage({ params }: PageProps) {
         <CartTest
           venue={venue}
           location={location}
+          locationPath={locationPath}
           menuItems={menuItems}
         />
       </CartProvider>

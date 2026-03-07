@@ -8,22 +8,101 @@ import TipSelector from "./TipSelector";
 type Props = {
   open: boolean;
   onClose: () => void;
+  locationId: string;
 };
 
-export default function CartDrawer({ open, onClose }: Props) {
+export default function CartDrawer({ open, onClose, locationId }: Props) {
   const {
     items,
     subtotalCents,
     estimatedTaxCents,
     tip_cents,
     estimatedTotalCents,
+    clearCart,
   } = useCart();
 
   const [atCheckout, setAtCheckout] = useState(false);
+  const [customerNote, setCustomerNote] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loadingStep, setLoadingStep] = useState("");
+  const [orderError, setOrderError] = useState<string | null>(null);
 
   const handleClose = () => {
     setAtCheckout(false);
+    setOrderError(null);
     onClose();
+  };
+
+  const handlePlaceOrder = async () => {
+    setIsSubmitting(true);
+    setOrderError(null);
+
+    try {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+      if (!supabaseUrl || !anonKey) {
+        setOrderError("Missing Supabase env vars");
+        return;
+      }
+
+      // Step 1: Create order
+      setLoadingStep("Placing order…");
+      const orderRes = await fetch(`${supabaseUrl}/functions/v1/super-task`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${anonKey}`,
+          "apikey": anonKey,
+        },
+        body: JSON.stringify({
+          location_id: locationId,
+          items: items.map((i) => ({ menu_item_id: i.menu_item_id, qty: i.qty })),
+          tip_cents,
+          customer_note: customerNote.trim() || null,
+        }),
+      });
+
+      const orderData = await orderRes.json();
+
+      if (!orderRes.ok) {
+        setOrderError(orderData.error ?? `Error ${orderRes.status}`);
+        return;
+      }
+
+      // Step 2: Create Stripe checkout session
+      setLoadingStep("Redirecting to payment…");
+      const origin = window.location.origin;
+      const checkoutRes = await fetch(`${supabaseUrl}/functions/v1/create-checkout-session`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${anonKey}`,
+          "apikey": anonKey,
+        },
+        body: JSON.stringify({
+          order_id: orderData.order_id,
+          success_url: `${origin}/order/${orderData.order_id}?session_id={CHECKOUT_SESSION_ID}`,
+          cancel_url: window.location.href,
+        }),
+      });
+
+      const checkoutData = await checkoutRes.json();
+
+      if (!checkoutRes.ok) {
+        setOrderError(checkoutData.error ?? `Payment setup error ${checkoutRes.status}`);
+        return;
+      }
+
+      // Step 3: Redirect to Stripe (clears in-memory cart naturally on navigation)
+      clearCart();
+      window.location.href = checkoutData.url;
+    } catch (err) {
+      setOrderError(err instanceof Error ? err.message : "Network error. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+      setLoadingStep("");
+    }
   };
 
   return (
@@ -77,8 +156,23 @@ export default function CartDrawer({ open, onClose }: Props) {
         {/* Footer */}
         {items.length > 0 && (
           <div className="px-5 py-5 border-t border-zinc-700 space-y-4">
-            {/* Tip (only at checkout step) */}
-            {atCheckout && <TipSelector />}
+            {/* Tip + Note (only at checkout step) */}
+            {atCheckout && (
+              <>
+                <TipSelector />
+                <div className="space-y-1.5">
+                  <label className="text-xs text-zinc-400 font-medium">Special request (optional)</label>
+                  <textarea
+                    value={customerNote}
+                    onChange={(e) => setCustomerNote(e.target.value)}
+                    placeholder="e.g. No onions, extra sauce…"
+                    rows={2}
+                    maxLength={200}
+                    className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 text-white text-sm rounded-xl placeholder-zinc-500 outline-none focus:ring-2 focus:ring-amber-500 resize-none"
+                  />
+                </div>
+              </>
+            )}
 
             {/* Totals */}
             <div className="space-y-2 text-sm">
@@ -102,10 +196,19 @@ export default function CartDrawer({ open, onClose }: Props) {
               </div>
             </div>
 
+            {/* Error message */}
+            {orderError && (
+              <p className="text-red-400 text-sm text-center">{orderError}</p>
+            )}
+
             {/* Action button */}
             {atCheckout ? (
-              <button className="w-full py-3.5 bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-xl text-base tracking-wide transition-colors">
-                Place Order →
+              <button
+                className="w-full py-3.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-black font-bold rounded-xl text-base tracking-wide transition-colors"
+                onClick={handlePlaceOrder}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? loadingStep || "Processing…" : "Pay Now →"}
               </button>
             ) : (
               <button

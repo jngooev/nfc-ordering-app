@@ -29,10 +29,29 @@ export type OrderingMenuItem = {
   is_active: boolean;
 };
 
+function buildLocationPath(
+  all: OrderingLocation[],
+  currentId: string
+): OrderingLocation[] {
+  const map = new Map(all.map((l) => [l.id, l]));
+  const path: OrderingLocation[] = [];
+  let current = map.get(currentId);
+  while (current) {
+    path.unshift(current);
+    current = current.parent_id ? map.get(current.parent_id) : undefined;
+  }
+  return path;
+}
+
 export async function fetchOrderingContext(
   venueSlug: string,
   locationId: string
-): Promise<{ venue: OrderingVenue; location: OrderingLocation; menuItems: OrderingMenuItem[] }> {
+): Promise<{
+  venue: OrderingVenue;
+  location: OrderingLocation;
+  locationPath: OrderingLocation[];
+  menuItems: OrderingMenuItem[];
+}> {
   const { data: venue, error: venueError } = await supabase
     .from("venues")
     .select("id, name, slug, is_active")
@@ -92,9 +111,20 @@ export async function fetchOrderingContext(
     throw new Error(`Menu items query error: ${menuError.message} (code: ${menuError.code})`);
   }
 
+  const { data: allLocations } = await supabase
+    .from("locations")
+    .select("id, venue_id, parent_id, display_name, code, type, is_active")
+    .eq("venue_id", venue.id);
+
+  const locationPath = buildLocationPath(
+    (allLocations ?? []) as OrderingLocation[],
+    locationId
+  );
+
   return {
     venue,
     location,
+    locationPath,
     menuItems: (menuItems ?? []) as OrderingMenuItem[],
   };
 }
